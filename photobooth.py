@@ -36,11 +36,11 @@ display_size = (0, 0)
 
 # Is the monitor on its side? (For portrait photos on landscape monitors).
 # If True, text will be rotate 90 degrees counterclockwise
-display_rotate = False
+display_rotate = True
 
 # Is the camera on its side? (For portrait photos without gravity sensor)
 # If True, the "right" side of the photo will be assumed to be the actual top.
-camera_rotate = False
+camera_rotate = True
 
 # Size of pictures in the assembled image
 #thumb_size = (1176, 784)
