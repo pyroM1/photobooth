@@ -38,7 +38,8 @@ display_size = (0, 0)
 
 # Is the monitor on its side? (For portrait photos on landscape monitors).
 # If True, text will be rotate 90 degrees counterclockwise
-display_rotate = True
+#display_rotate = True
+display_rotate = False
 
 # Is the camera on its side? (For portrait photos without gravity sensor)
 # If True, the "right" side of the photo will be assumed to be the actual top.
@@ -717,7 +718,7 @@ class Photobooth:
         self.gpio.set_output(self.lamp_channel, 0)
 
         # Show pose message
-        self.show_pose(2, "POSE!\n\nTaking four pictures...");
+        self.show_pose(2, "POSE!\n\nTaking four pictures");
 
         # Extract display and image sizes
         size = self.display.get_size()
@@ -762,7 +763,7 @@ class Photobooth:
                     sleep(1.0 - toc)
 
         # Show 'Wait'
-        self.display.msg("Please wait!\n\nProcessing...")
+        self.display.msg("Please wait!\n\nWorking ...")
 
         # Assemble them
         outfile = self.assemble_pictures(filenames)
