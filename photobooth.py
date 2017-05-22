@@ -586,9 +586,6 @@ class Photobooth:
         This is the original show_countdown preview code. 
         """
 
-        self.display.msg("Reinitializing camera") 
-        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
-
         import cv2, pygame, numpy
         tic = time()
         toc = 0
@@ -617,9 +614,6 @@ class Photobooth:
         PyGame Surface in memory and it's much faster.
 
         """
-
-        self.display.msg("Reinitializing camera") 
-        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
 
         import cv2, pygame, numpy
         tic = time()
@@ -667,8 +661,6 @@ class Photobooth:
         blits it directly to a subsurface of the display. 
 
         """
-        self.display.msg("Reinitializing camera") 
-        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
 
         import cv2, pygame, numpy
         tic = time()
@@ -701,9 +693,6 @@ class Photobooth:
         Note that this is *necessary* for OpenCV webcams as V4L will ramp the
         brightness level only after a certain number of frames have been taken.
         """
-
-        self.display.msg(message) # Something to think about during reinit
-        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
 
         tic = time()
         toc = time() - tic
@@ -847,6 +836,7 @@ def main():
     photobooth = Photobooth(display_size, display_rotate, picture_basename, max_assembled_size, pose_time, display_time, 
                             gpio_trigger_channel, gpio_shutdown_channel, gpio_lamp_channel, 
                             idle_slideshow, slideshow_display_time)
+    photobooth.clear_event_queue() # Flush button presses
     photobooth.run()
     photobooth.teardown()
     return 0
