@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 # Created by br _at_ re-web _dot_ eu, 2015-2016
 
+import cProfile
+
 import os
 import pygame
 from datetime import datetime
 from glob import glob
 from sys import exit
-from time import sleep, clock
+from time import sleep, time
 
 from PIL import Image
 
-from gui import GUI_PyGame as GuiModule
+from gui import GuiException, GUI_PyGame as GuiModule
 from camera import CameraException, Camera_cv as CameraModule
 # from camera import CameraException, Camera_gPhoto as CameraModule
 from slideshow import Slideshow
@@ -346,8 +348,8 @@ class Photobooth:
         while True:
             self.camera.set_idle()
             self.slideshow.display_next("Hit the button!")
-            tic = clock()
-            while clock() - tic < self.slideshow_display_time:
+            tic = time()
+            while time() - tic < self.slideshow_display_time:
                 self.check_and_handle_events()
 
     def run(self):
@@ -369,7 +371,9 @@ class Photobooth:
             except (KeyboardInterrupt, SystemExit):
                 raise
             except Exception as e:
-                print('SERIOUS ERROR: ' + repr(e))
+                import sys
+                print('SERIOUS ERROR' + repr(e))
+                sys.excepthook(*sys.exc_info())
                 self.handle_exception("SERIOUS ERROR!\n(see log file)")
 
     def check_and_handle_events(self):
@@ -405,13 +409,14 @@ class Photobooth:
         # Take pictures
         elif key == ord('c'):
             self.take_picture()
-        # Toggle autoprinting
+        elif key == ord('f'):
+            self.display.toggle_fullscreen()
+        elif key == ord('i'):   # Re-initialize the camera for debugging
+            self.camera.reinit()
         elif key == ord('p'):
             self.toggle_auto_print()
         elif key == ord('r'):
             self.toggle_rotate()
-        elif key == ord('f'):
-            self.display.toggle_fullscreen()
         elif key == ord('1'):   # Just for debugging
             self.show_preview_fps_1(5)
         elif key == ord('2'):   # Just for debugging
@@ -461,7 +466,10 @@ class Photobooth:
     def handle_exception(self, msg):
         """Displays an error message and returns"""
         print("Error: " + msg)
-        self.display.msg("ERROR:\n\n" + msg)
+        try:
+            self.display.msg("ERROR:\n\n" + msg)
+        except GuiException:
+            self.display.msg("ERROR")
         sleep(3)
 
 
@@ -498,16 +506,21 @@ class Photobooth:
                  a        w       2*b       w        a
         """
 
+        if self.camera.get_rotate():
+            pic_size=(self.pic_size[1], self.pic_size[0])
+        else:
+            pic_size=self.pic_size
+
         # Thumbnail size of pictures
         outer_border = 50
         inner_border = 20
-        thumb_box = ( int( self.pic_size[0] / 2 ) ,
-                      int( self.pic_size[1] / 2 ) )
+        thumb_box = ( int( pic_size[0] / 2 ) ,
+                      int( pic_size[1] / 2 ) )
         thumb_size = ( thumb_box[0] - outer_border - inner_border ,
                        thumb_box[1] - outer_border - inner_border )
 
         # Create output image with white background
-        output_image = Image.new('RGB', self.pic_size, (255, 255, 255))
+        output_image = Image.new('RGB', pic_size, (255, 255, 255))
 
         # Image 0
         img = Image.open(input_filenames[0])
@@ -559,34 +572,24 @@ class Photobooth:
 
     def show_counter(self, seconds):
         """Loop over showing the preview (if possible), with a count down"""
-        tic = clock()
-        toc = clock() - tic
+        tic = time()
+        toc = time() - tic
         while toc < seconds:
             self.show_preview(str(seconds - int(toc)))
             # Limit progress to 1 "second" per preview (e.g., too slow on Raspi 1)
-            toc = min(toc + 1, clock() - tic)
+            toc = min(toc + 1, time() - tic)
 
     def show_preview_fps_1(self, seconds):
         """XXX Debugging code for benchmarking XXX
 
         This is the original show_countdown preview code. 
-
-        Using camera.take_preview(), display.show_picture() is very
-        slow. How slow? 5 frames per second! This is true even when
-        using shared memory instead of /tmp. 
-
-        While show_message() and clear() also drop fps significantly,
-        they are not as much of a bottleneck.
-
-        On an iMac:
-        * take_preview() -5 fps
-        * show_picture() -9 fps
-        * show_message() -2 fps
-        * clear()	 -0.5 fps
-
         """
+
+        self.display.msg("Reinitializing camera") 
+        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
+
         import cv2, pygame, numpy
-        tic = clock()
+        tic = time()
         toc = 0
         frames=0
 
@@ -600,31 +603,25 @@ class Photobooth:
             self.display.show_message(str(seconds - int(toc)))
             self.display.apply()
 
-            toc = clock() - tic
+            toc = time() - tic
 
         self.display.msg("FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc))
-        print("FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc))
+        print("Method 1 FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc))
         sleep(3)
 
     def show_preview_fps_2(self, seconds):
         """XXX Debugging code for benchmarking XXX
 
         As a test, I'm trying a direct conversion from OpenCV to a
-        PyGame Surface in memory and it's much faster. >15fps
-
-        (This is still the slower method, using make_surface.
-        It's even faster to use subsurfaces, see below).
-
-        Note that the conversion (cvtColor, rot90) takes up time.
-        Without the conversion, the loop is limited by the speed from
-        which we can read from the camera (about 30fps).
-
-        Blitting a static image without reading from a camera is
-        giving me about 180fps on a Raspberry Pi3b.
+        PyGame Surface in memory and it's much faster.
 
         """
+
+        self.display.msg("Reinitializing camera") 
+        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
+
         import cv2, pygame, numpy
-        tic = clock()
+        tic = time()
         toc = 0
         frames=0
         
@@ -656,21 +653,24 @@ class Photobooth:
             self.display.show_message(str(seconds - int(toc)))
             self.display.apply()
 
-            toc = clock() - tic
+            toc = time() - tic
 
         self.display.msg("FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc))
-        print("FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc))
+        print("Method 2 FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc))
         sleep(3)
 
     def show_preview_fps_3(self, seconds):
         """XXX Debugging code for benchmarking XXX
 
         This is the fastest method, which decimates the array and
-        blits it directly to a subsurface of the display. >20fps
+        blits it directly to a subsurface of the display. 
 
         """
+        self.display.msg("Reinitializing camera") 
+        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
+
         import cv2, pygame, numpy
-        tic = clock()
+        tic = time()
         toc = 0
         frames=0
 
@@ -688,10 +688,10 @@ class Photobooth:
             self.display.show_message(str(seconds - int(toc)))
             self.display.apply()
 
-            toc = clock() - tic
+            toc = time() - tic
 
         self.display.msg("FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc))
-        print "FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc)
+        print "Method 3 FPS: %d/%.2f = %.2f" % (frames, toc, float(frames)/toc)
         sleep(3)
 
     def show_pose(self, seconds, message=""):
@@ -700,12 +700,16 @@ class Photobooth:
         Note that this is *necessary* for OpenCV webcams as V4L will ramp the
         brightness level only after a certain number of frames have been taken.
         """
-        tic = clock()
-        toc = clock() - tic
+
+        self.display.msg(message) # Something to think about during reinit
+        self.camera.reinit() # kludge to work around OpenCV 2.4 slowdown bug
+
+        tic = time()
+        toc = time() - tic
         while toc < seconds:
             self.show_preview(message)
             # Limit progress to 1 "second" per preview (e.g., too slow on Raspi 1)
-            toc = min(toc + 1, clock() - tic)
+            toc = min(toc + 1, time() - tic)
 
     def take_picture(self):
         """Implements the picture taking routine"""
@@ -734,7 +738,7 @@ class Photobooth:
                 self.display.show_message("S M I L E !!!\n\n" + str(x+1) + " of 4")
                 self.display.apply()
 
-                tic = clock()
+                tic = time()
 
                 try:
                     filenames[x] = self.camera.take_picture(tmp_dir + "photobooth_%02d.jpg" % x)
@@ -753,7 +757,7 @@ class Photobooth:
                        raise e
 
                 # Measure used time and sleep a second if too fast 
-                toc = clock() - tic
+                toc = time() - tic
                 if toc < 1.0:
                     sleep(1.0 - toc)
 
@@ -767,8 +771,8 @@ class Photobooth:
             # Show picture for 10 seconds and then send it to the printer.
             # If auto_print is True,  hitting the button cancels the print.
             # If auto_print is False, hitting the button sends the print
-            tic = clock()
-            t = int(self.display_time - (clock() - tic))
+            tic = time()
+            t = int(self.display_time - (time() - tic))
             old_t = self.display_time+1
             button_pressed=False
 
@@ -798,7 +802,7 @@ class Photobooth:
                     button_pressed=True
                     break
 
-                t = int(self.display_time - (clock() - tic))
+                t = int(self.display_time - (time() - tic))
 
             if auto_print ^ button_pressed:
                 self.printer_module.enqueue(outfile)
@@ -818,6 +822,25 @@ class Photobooth:
 #################
 ### Functions ###
 #################
+
+pr=None
+def begin_profile():
+    "Run this before entering a slow part of the program" 
+    global pr
+    pr=cProfile.Profile()
+    pr.enable()
+
+def end_profile():
+    "Run this after exiting a slow part of the program" 
+    global pr
+    pr.disable()
+    import StringIO
+    s = StringIO.StringIO()
+    sortby = 'time'
+    import pstats
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print s.getvalue()    
 
 def main():
     photobooth = Photobooth(display_size, display_rotate, picture_basename, max_assembled_size, pose_time, display_time, 
