@@ -256,9 +256,10 @@ class PrinterModule:
             # hpcups isn't centering, resizing JPEG image properly to the page
             # size, so let's use ImageMagick to convert it
             import subprocess
-            pngname="kludge.png"
-            subprocess.call( ["convert", "-background", "white", "-extent", "960x1440", "-gravity", "center", filename, "-page", "4x6", pngname] )
-            filename=pngname
+            newname="kludge.pdf"
+            # subprocess.call( ["convert", "-background", "white", "-extent", "960x1440", "-gravity", "center", filename, "-page", "4x6", newname] )
+            subprocess.call( ["convert", filename, "-page", "4x6", newname] )
+            filename=newname
             # END KLUDGE
 
             print "Now printing file " + filename + " to printer " + self.printer + ", using options " + repr(self.options)
