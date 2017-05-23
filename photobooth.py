@@ -45,13 +45,9 @@ display_rotate = True
 # If True, the "right" side of the photo will be assumed to be the actual top.
 camera_rotate = True
 
-# Size of pictures in the assembled image
-#thumb_size = (1176, 784)
-thumb_size = (640, 480)
-
 # Maximum size of assembled image
 #max_assembled_size = (2352, 1568)
-max_assembled_size = list(2*x for x in thumb_size)
+max_assembled_size = (1280, 960)
 
 # Image basename
 picture_basename = datetime.now().strftime("%Y-%m-%d/pic")
@@ -478,7 +474,7 @@ class Photobooth:
 
 
     def assemble_pictures(self, input_filenames):
-        """Assembles four pictures into a 2x2 grid
+        """Assembles four pictures into a 2x2 grid of thumbnails
 
         It assumes, all original pictures have the same aspect ratio as
         the resulting image.
@@ -510,6 +506,8 @@ class Photobooth:
                  a        w       2*b       w        a
         """
 
+        # If the camera is in portrait orientation but has no gravity sensor,
+        # we will need to rotate our assembled size as well. 
         if self.camera.get_rotate():
             pic_size=(self.pic_size[1], self.pic_size[0])
         else:
