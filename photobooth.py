@@ -284,7 +284,7 @@ class Photobooth:
             self.display.set_rotate(True)
 
         self.pictures      = PictureList(picture_basename)
-        self.camera        = CameraModule(picture_size)
+        self.camera        = CameraModule((picture_size[0]/2, picture_size[1]/2))
         self.camera_rotate = camera_rotate
         if camera_rotate:
             self.camera.set_rotate(True)
@@ -573,7 +573,7 @@ class Photobooth:
         pose before the shot. For speed, previews are decimated to fit
         within the screen instead of being scaled. For even more
         speed, the previews are blitted directly to a subsurface of
-        the display. (Converting to a pygame Surface would have been slow). 
+        the display. (Converting to a pygame Surface is slower). 
 
         """ 
         self.display.clear()
@@ -595,7 +595,7 @@ class Photobooth:
     def show_preview_fps_1(self, seconds):
         """XXX Debugging code for benchmarking XXX
 
-        This is the original show_countdown preview code. 
+        This is the original show_countdown preview code. (~5fps)
         """
 
         import cv2, pygame, numpy
@@ -623,7 +623,9 @@ class Photobooth:
         """XXX Debugging code for benchmarking XXX
 
         As a test, I'm trying a direct conversion from OpenCV to a
-        PyGame Surface in memory and it's much faster.
+        PyGame Surface in memory and it's much faster than the
+        original code, but still slower than subsurface blitting.
+        (~10fps)
 
         """
 
@@ -646,9 +648,9 @@ class Photobooth:
             size=(dw, dh)
             image_size = (w, h)
             offset=(0,0)
-            image_scale = min([min(a,b)/float(b) for a,b in zip(size, image_size)])
+
             # New image size
-            new_size = [int(a*image_scale) for a in image_size]
+            new_size = maxpect(image_size, size)
             # Update offset
             offset = tuple(a+int((b-c)/2) for a,b,c in zip(offset, size, new_size))
             # Apply scaling
@@ -670,7 +672,7 @@ class Photobooth:
         """XXX Debugging code for benchmarking XXX
 
         This is the fastest method, which decimates the array and
-        blits it directly to a subsurface of the display. 
+        blits it directly to a subsurface of the display. (~14fps)
 
         """
 
@@ -863,7 +865,8 @@ def end_profile():
     print s.getvalue()    
 
 def main():
-    photobooth = Photobooth(display_size, display_rotate, picture_basename, assembled_size, pose_time, display_time, 
+    photobooth = Photobooth(display_size, display_rotate, picture_basename,
+                            assembled_size, pose_time, display_time, 
                             gpio_trigger_channel, gpio_shutdown_channel, gpio_lamp_channel, 
                             idle_slideshow, slideshow_display_time)
     photobooth.clear_event_queue() # Flush button presses
