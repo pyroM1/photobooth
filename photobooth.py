@@ -44,9 +44,10 @@ display_rotate = True
 # If True, the "right" side of the photo will be assumed to be the actual top.
 camera_rotate = True
 
-# Maximum size of assembled image
-#max_assembled_size = (2352, 1568)
-max_assembled_size = (1280, 960)
+# Final size of assembled image (the montage of four thumbnails).
+# If printing, this should be same aspect ratio as the printer page.
+# (E.g., 6x4 photo paper @392dpi == 2352x1568)
+assembled_size = (6*392, 4*392)
 
 # Image basename
 picture_basename = datetime.now().strftime("%Y-%m-%d/pic")
@@ -471,14 +472,19 @@ class Photobooth:
             self.display.msg("ERROR")
         sleep(3)
 
-
     def assemble_pictures(self, input_filenames):
-        """Assembles four pictures into a 2x2 grid of thumbnails
+        """Assembles four pictures into a 2x2 grid of thumbnails.
 
-        It assumes, all original pictures have the same aspect ratio as
-        the resulting image.
+        The total size (WxH) is assigned in the global variable
+        assembled_size at the top of this file. (E.g., 2352x1568)
 
-        For the thumbnail sizes we have:
+        The outer border (a) is 2% of W
+        The inner border (b) is 1% of W
+
+        Note that if the camera is on its side, H and W will be
+        swapped to create a portrait, rather than landscape, montage.
+
+        Thumbnail sizes are calculated like so:
         h = (H - 2 * a - 2 * b) / 2
         w = (W - 2 * a - 2 * b) / 2
 
@@ -503,50 +509,55 @@ class Photobooth:
 
                |---|-------------|---|-------------|---|
                  a        w       2*b       w        a
+
+        [Note that extra padding will be added on the sides if the
+        aspect ratio of the camera images do not match the aspect
+        ratio of the final assembled image.]
+
         """
 
         # If the camera is in portrait orientation but has no gravity sensor,
         # we will need to rotate our assembled size as well. 
         if self.camera.get_rotate():
-            pic_size=(self.pic_size[1], self.pic_size[0])
+            (H, W) = self.pic_size
         else:
-            pic_size=self.pic_size
+            (W, H) = self.pic_size
 
         # Thumbnail size of pictures
-        outer_border = 50
-        inner_border = 20
-        thumb_box = ( int( pic_size[0] / 2 ) ,
-                      int( pic_size[1] / 2 ) )
+        outer_border = int( 2 * max(W,H) / 100 ) # 2% of long edge
+        inner_border = int( 1 * max(W,H) / 100 ) # 1% of long edge
+        thumb_box = ( int( W / 2 ) ,
+                      int( H / 2 ) )
         thumb_size = ( thumb_box[0] - outer_border - inner_border ,
                        thumb_box[1] - outer_border - inner_border )
 
         # Create output image with white background
-        output_image = Image.new('RGB', pic_size, (255, 255, 255))
+        output_image = Image.new('RGB', (W, H), (255, 255, 255))
 
         # Image 0
         img = Image.open(input_filenames[0])
-        img.thumbnail(thumb_size)
+        img = img.resize(maxpect(img.size, thumb_size), Image.ANTIALIAS)
         offset = ( thumb_box[0] - inner_border - img.size[0] ,
                    thumb_box[1] - inner_border - img.size[1] )
         output_image.paste(img, offset)
 
         # Image 1
         img = Image.open(input_filenames[1])
-        img.thumbnail(thumb_size)
+        img = img.resize(maxpect(img.size, thumb_size), Image.ANTIALIAS)
         offset = ( thumb_box[0] + inner_border,
                    thumb_box[1] - inner_border - img.size[1] )
         output_image.paste(img, offset)
 
         # Image 2
         img = Image.open(input_filenames[2])
-        img.thumbnail(thumb_size)
+        img = img.resize(maxpect(img.size, thumb_size), Image.ANTIALIAS)
         offset = ( thumb_box[0] - inner_border - img.size[0] ,
                    thumb_box[1] + inner_border )
         output_image.paste(img, offset)
 
         # Image 3
         img = Image.open(input_filenames[3])
-        img.thumbnail(thumb_size)
+        img = img.resize(maxpect(img.size, thumb_size), Image.ANTIALIAS)
         offset = ( thumb_box[0] + inner_border ,
                    thumb_box[1] + inner_border )
         output_image.paste(img, offset)
@@ -821,6 +832,16 @@ class Photobooth:
 ### Functions ###
 #################
 
+def maxpect(a, b):
+    '''Given two width by height sizes a and b, return the maximum WxH
+    that is the same aspect ratio as a and fits within b.
+    '''
+    w_ratio = float(b[0]) / a[0]
+    h_ratio = float(b[1]) / a[1]
+    ratio = min(w_ratio, h_ratio)
+
+    return (int(ratio * a[0]), int (ratio * a[1]))
+
 pr=None
 def begin_profile():
     "Run this before entering a slow part of the program" 
@@ -841,7 +862,7 @@ def end_profile():
     print s.getvalue()    
 
 def main():
-    photobooth = Photobooth(display_size, display_rotate, picture_basename, max_assembled_size, pose_time, display_time, 
+    photobooth = Photobooth(display_size, display_rotate, picture_basename, assembled_size, pose_time, display_time, 
                             gpio_trigger_channel, gpio_shutdown_channel, gpio_lamp_channel, 
                             idle_slideshow, slideshow_display_time)
     photobooth.clear_event_queue() # Flush button presses
