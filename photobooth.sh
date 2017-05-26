@@ -12,8 +12,6 @@ if v4l2-ctl --silent 2>/dev/null; then
 fi
 
 
-<<<<<<< HEAD
-=======
 # Do some error checking to make sure gphoto will work.
 # First: are they even using gphoto (not opencv)?
 gphototest=$(gphoto2 --auto-detect 2>/dev/null | tail -n+3)
@@ -89,4 +87,3 @@ fi
 # [Note that the Gphoto2 FAQ explicitly says to NEVER run gphoto2 as
 # root, which is essentially what you'd be doing by using sudo here.]
 python photobooth.py >>photobooth.log 2>>photobooth.err
->>>>>>> master
