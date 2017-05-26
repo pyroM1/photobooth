@@ -14,7 +14,7 @@ from PIL import Image
 
 from gui import GuiException, GUI_PyGame as GuiModule
 from camera import CameraException, Camera_cv as CameraModule
-# from camera import CameraException, Camera_gPhoto as CameraModule
+#from camera import CameraException, Camera_gPhoto as CameraModule
 from slideshow import Slideshow
 from events import Rpi_GPIO as GPIO
 
@@ -40,7 +40,7 @@ display_size = (0, 0)
 # If True, text will be rotated 90 degrees counterclockwise
 display_rotate = True
 
-# Is the camera on its side? (For portrait photos without gravity sensor)
+# Is the camera on its side? (For portrait orientation. Note: EXIF is ignored!)
 # If True, the "right" side of the photo will be assumed to be the actual top.
 camera_rotate = True
 
@@ -53,13 +53,13 @@ assembled_size = (6*392, 4*392)
 picture_basename = datetime.now().strftime("%Y-%m-%d/pic")
 
 # GPIO channel of switch to shutdown the Photobooth
-gpio_shutdown_channel = 24 # pin 18 in all Raspi-Versions
+gpio_shutdown_channel = 24 # pin 18 in all Raspi-Versions, (try pin 20 as GND).
 
 # GPIO channel of switch to take pictures
-gpio_trigger_channel = 23 # pin 16 in all Raspi-Versions
+gpio_trigger_channel = 23 # pin 16 in all Raspi-Versions, (try pin 14 as GND).
 
-# GPIO output channel for (blinking) lamp
-gpio_lamp_channel = 4 # pin 7 in all Raspi-Versions
+# GPIO output channel for (blinking) lamp (use approx 220 Ohm resistor to LED)
+gpio_lamp_channel = 4 # pin 7 in all Raspi-Versions, (pin 9 is a handy GND)
 
 # Waiting time in seconds for posing
 pose_time = 3
@@ -79,7 +79,9 @@ auto_print = True
 # What filename for the shutter sound when taking pictures?
 # Set to None to have no sound.
 shutter_sound = "shutter.wav"
-#shutter_sound = None
+bip1_sound    = "bip1.wav"
+bip2_sound    = "bip2.wav"
+
 
 # Temp directory for storing pictures
 if os.access("/dev/shm", os.W_OK):
@@ -284,10 +286,8 @@ class Photobooth:
             self.display.set_rotate(True)
 
         self.pictures      = PictureList(picture_basename)
-        self.camera        = CameraModule((picture_size[0]/2, picture_size[1]/2))
+        self.camera        = CameraModule((picture_size[0]/2, picture_size[1]/2), camera_rotate=camera_rotate)
         self.camera_rotate = camera_rotate
-        if camera_rotate:
-            self.camera.set_rotate(True)
 
         self.pic_size      = picture_size
         self.pose_time     = pose_time
@@ -311,9 +311,11 @@ class Photobooth:
 
         self.printer_module  = PrinterModule()
         try:
-            pygame.mixer.init()
+            pygame.mixer.init(buffer=1024)
             self.shutter = pygame.mixer.Sound(shutter_sound)
-            self.shutter.play()
+            self.bip1 = pygame.mixer.Sound(bip1_sound)
+            self.bip2 = pygame.mixer.Sound(bip2_sound)
+            self.bip2.play()
         except pygame.error:
             self.shutter = None
             pass
@@ -517,9 +519,9 @@ class Photobooth:
 
         """
 
-        # If the camera is in portrait orientation but has no gravity sensor,
-        # we will need to rotate our assembled size as well. 
-        if self.camera.get_rotate():
+        # If the display is in portrait orientation,
+        # we should create an assembled image that fits it. 
+        if self.display.get_rotate():
             (H, W) = self.pic_size
         else:
             (W, H) = self.pic_size
@@ -587,8 +589,14 @@ class Photobooth:
         """Loop over showing the preview (if possible), with a count down"""
         tic = time()
         toc = time() - tic
+        old_t=None
         while toc < seconds:
-            self.show_preview(str(seconds - int(toc)))
+            t=seconds - int(toc)
+            if t != old_t and self.bip1:
+                self.bip1.play()
+            old_t=t
+                
+            self.show_preview(str(t))
             # Limit progress to 1 "second" per preview (e.g., too slow on Raspi 1)
             toc = min(toc + 1, time() - tic)
 
@@ -721,7 +729,7 @@ class Photobooth:
         self.gpio.set_output(self.lamp_channel, 0)
 
         # Show pose message
-        self.show_pose(2, "POSE!\n\nTaking four pictures");
+        self.show_pose(2, "POSE!\n\nTaking 4 pictures ...");
 
         # Extract display and image sizes
         size = self.display.get_size()

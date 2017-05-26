@@ -1,10 +1,21 @@
 #!/usr/bin/env python
 # Created by br@re-web.eu, 2015
 
+# TODO: This really ought to be a single class with subclasses for
+# each backend (opencv, gphoto-cffi, piggyphoto, gphoto cmdline).
+
+import os
 import subprocess
 import pygame
 import numpy
 from PIL import Image
+
+
+# Temp directory for storing pictures
+if os.access("/dev/shm", os.W_OK):
+    tmp_dir = "/dev/shm/"       # Don't abuse Raspberry Pi SD card, if possible
+else:
+    tmp_dir = "/tmp/"
 
 
 cv_enabled = False
@@ -71,6 +82,8 @@ class Camera_cv:
                 cv_enabled=False
                 return
 
+            print "Connecting to camera using opencv"
+
             # Print the capabilities of the connected camera
             w=self.cap.get(cv.cv.CV_CAP_PROP_FRAME_WIDTH)
             h=self.cap.get(cv.cv.CV_CAP_PROP_FRAME_HEIGHT)
@@ -110,7 +123,7 @@ class Camera_cv:
     def has_preview(self):
         return True 
 
-    def take_preview(self, filename="/tmp/preview.jpg"):
+    def take_preview(self, filename=tmp_dir + "preview.jpg"):
         self.take_picture(filename)
 
     def get_preview_array(self, max_size=None):
@@ -126,7 +139,7 @@ class Camera_cv:
             cv_enabled=True
             self.__init__()     # Try again to open the camera (e.g, just plugged in)
             if not cv_enabled:  # Still failed?
-                raise CameraException("No camera found using OpenCV!")
+                raise CameraException("OpenCV: No camera found!")
             
         # Grab a camera frame
         r, f = self.cap.read()
@@ -160,27 +173,19 @@ class Camera_cv:
         """
         f = self.get_preview_array(max_size)
         ( w,  h) = ( len(f), len(f[0]) )
-
-        # For some reason make_surface() is slower on an iMac than
-        # creating a new surface and blitting the image to it. Weird!
-        # I think this is the opposite for the Raspberry Pi 3b.
-        if False:
-            s=pygame.surfarray.make_surface(f)
-        else:
-            s = pygame.Surface((w,h))
-            pygame.surfarray.blit_array(s, f)
+        s=pygame.surfarray.make_surface(f)
 
         return s
 
 
-    def take_picture(self, filename="/tmp/picture.jpg"):
+    def take_picture(self, filename=tmp_dir+"picture.jpg"):
         global cv_enabled
         if cv_enabled:
             r, frame = self.cap.read()
             if not r:
                 cv_enabled=False
                 raise CameraException("Error capturing frame using OpenCV!")
-            if self.rotate:
+            if self.rotate:     # Is camera on its side?
                 frame=numpy.rot90(frame)
             cv.imwrite(filename, frame)
             return filename
@@ -196,17 +201,20 @@ class Camera_gPhoto:
 
     def __init__(self, resolution=(10000,10000), camera_rotate=False):
         self.resolution = resolution # XXX Not used for gphoto?
-        self.rotate = camera_rotate  # XXX Not needed for gphoto?
+        self.rotate = camera_rotate  # XXX Not yet implemented for gphoto.
 
         # Print the capabilities of the connected camera
         try:
             if gphoto2cffi_enabled:
+                print "Connecting to camera using gphoto2cffi"
                 self.cap = gp.Camera()
             elif piggyphoto_enabled:
+                print "Connecting to camera using piggyphoto"
                 self.cap = gp.camera()
                 print(self.cap.abilities)
             else:
-                print(self.call_gphoto("-a", "/dev/null"))
+                print "Connecting to camera using command line gphoto2"
+                print(self.call_gphoto("-a"))
         except CameraException as e:
             print('Warning: Listing camera capabilities failed (' + e.message + ')')
         except gpExcept as e:
@@ -216,7 +224,15 @@ class Camera_gPhoto:
         "Not needed for gphoto."
         return
 
-    def call_gphoto(self, action, filename):
+    def call_gphoto(self, action, filename="/dev/null"):
+        '''Run a gphoto2 command as a subprocess. 
+
+        action is in the form of a valid command line argument, e.g.,
+        '-a' or '--set-config capture=0'.
+
+        filename is the name of the JPG file written to by --capture and --preview.
+
+        '''
         # Try to run the command
         try:
             cmd = "gphoto2 --force-overwrite --quiet " + action + " --filename " + filename
@@ -235,22 +251,22 @@ class Camera_gPhoto:
         return output
 
     def set_rotate(self, camera_rotate):
-        print "Camera rotation not implemented for gphoto yet."
+        '''Force rotation of camera. Currently EXIF Orientation is always ignored.'''
         self.rotate = camera_rotate
 
     def get_rotate(self):
         return self.rotate
 
     def has_preview(self):
-        return gphoto2cffi_enabled or piggyphoto_enabled
+        return True
 
-    def take_preview(self, filename="/tmp/preview.jpg"):
+    def take_preview(self, filename=tmp_dir+"preview.jpg"):
         if gphoto2cffi_enabled:
             self._save_picture(filename, self.cap.get_preview())
         elif piggyphoto_enabled:
             self.cap.capture_preview(filename)	
         else:
-            raise CameraException("No preview supported!")
+            self.call_gphoto("--capture-preview", filename)
 
     def get_preview_array(self, max_size=None):
         """Get a quick preview from the camera and return it as a 2D array
@@ -263,14 +279,31 @@ class Camera_gPhoto:
             jpeg=self.cap.get_preview()
             f=numpy.array(Image(jpeg)) # Untested, but should work
 
-        elif piggyphoto_enabled:        # XXXX PLEASE TEST PLEASE TEST  XXXX
-            # Piggyphoto requires saving previews on filesystem!
-            # XXX BUG. Shouldn't presume /dev/shm/ exists everywhere.
-            piggy_preview = "/dev/shm/photobooth_piggy_preview.jpg"
-            self.cap.capture_preview(piggy_preview)
+        elif piggyphoto_enabled:
+            # Piggyphoto requires saving previews on filesystem! Yuck.
+            piggy_preview = tmp_dir + "photobooth_piggy_preview.jpg"
+            self.take_preview(piggy_preview)
             f=Image.open(piggy_preview)
+            if self.rotate:     # Is camera on its side?
+                f=f.transpose(Image.ROTATE_90)
+            f=numpy.array(f)
         else:
-            raise CameraException("No preview supported!")
+            filename = "photobooth_cmdline_preview.jpg"
+            cmdline_preview = tmp_dir + filename
+            thumb_preview = tmp_dir + "thumb_" + filename
+            self.take_preview(cmdline_preview)
+            try:
+                f=Image.open(thumb_preview)
+                f=numpy.array(f)
+            except IOError:
+                # Gphoto always prepends "thumb_" even if --filename
+                # is specified. This seems likely to go away as it
+                # makes little sense. Let's be future-proof.
+                try:
+                    f=Image.open(cmdline_preview)
+                    f=numpy.array(f)
+                except Exception: 
+                    raise CameraException("No preview supported!")
 
         # Optionally reduce frame size by decimation (nearest neighbor)
         if max_size:
@@ -290,30 +323,21 @@ class Camera_gPhoto:
         """
         f = self.get_preview_array(max_size)
         ( w,  h) = ( len(f), len(f[0]) )
-
-        # For some reason make_surface() is slower on an iMac than
-        # creating a new surface and blitting the image to it. Weird!
-        # I think this is the opposite for the Raspberry Pi 3b.
-        if False:
-            s=pygame.surfarray.make_surface(f)
-        else:
-            s = pygame.Surface((w,h))
-            pygame.surfarray.blit_array(s, f)
+        s=pygame.surfarray.make_surface(f)
 
         return s
 
-    def take_picture(self, filename="/tmp/picture.jpg"):
-
-        # Note: this is *supposed* to handle self.rotate in the same
-        # way the OpenCV code does. It doesn't yet. Maybe it doesn't
-        # need to as most "real" cameras have gravity sensors.
-
+    def take_picture(self, filename=tmp_dir + "picture.jpg"):
         if gphoto2cffi_enabled:
             self._save_picture(filename, self.cap.capture())
         elif piggyphoto_enabled:
             self.cap.capture_image(filename)
         else:
             self.call_gphoto("--capture-image-and-download", filename)
+        if self.rotate:         # Is camera on its side?
+            f=Image.open(filename)
+            f=f.transpose(Image.ROTATE_90)
+            f.save(filename)
         return filename
 
     def _save_picture(self, filename, data):
@@ -325,5 +349,6 @@ class Camera_gPhoto:
         if gphoto2cffi_enabled:
             self.cap._get_config()['actions']['viewfinder'].set(False)
         elif piggyphoto_enabled:
+            pass
             # This doesn't work...
-            self.cap.config.main.actions.viewfinder.value = 0
+            #self.cap.config.main.actions.viewfinder.value = 0
