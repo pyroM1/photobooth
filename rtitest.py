@@ -39,9 +39,15 @@ cap=gp.Camera()
 #cap.set_canon_capture(1)        # Should be harmless for non-canon.
 
 b = ByteImage()
-for i in range(100):
+from time import time
+t=time()
+
+frames=100
+tries=0
+for i in range(frames):
     data=None
     while data==None:
+        tries=tries+1
         (data, length) = cap.preview()
     decompress.decompress(data, length, ctypes.byref(b))
 
@@ -49,8 +55,10 @@ for i in range(100):
     image=pygame.image.frombuffer(string, (b.width,b.height), "RGB")
     screen.blit(image, (0,0))
     pygame.display.update()
+print ("%d reads for %d frames\n" % (tries,frames))
+print ("\nFPS: %f\n" % (frames/(time()-t)))
 
-cap.capture_to_file("foo")      # Appends ".jpg" to filename automatically
+#cap.capture_to_file("foo")      # Appends ".jpg" to filename automatically
 
 cap.release()
 
