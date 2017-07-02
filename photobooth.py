@@ -34,7 +34,7 @@ except ImportError:
 
 # Screen size (set to 0,0 to use native resolution)
 display_size = (0, 0)
-display_size = (1024, 768)
+#display_size = (1824, 984)
 
 # Is the monitor on its side? (For portrait photos on landscape monitors).
 # If True, text will be rotated 90 degrees counterclockwise
@@ -47,7 +47,7 @@ camera_rotate = True
 # Final size of assembled image (the montage of four thumbnails).
 # If printing, this should be same aspect ratio as the printer page.
 # (E.g., 6x4 photo paper @392dpi == 2352x1568)
-assembled_size = (6*392, 4*392)
+assembled_size = (6*300, 4*300)
 
 # Image basename
 picture_basename = datetime.now().strftime("%Y-%m-%d/pic")
