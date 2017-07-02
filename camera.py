@@ -412,8 +412,6 @@ class Camera_gPhoto:
 
         print('Best choice is: ' + repr(bestchoice) + ": " + repr(a[bestchoice]))
         self.set_imagesize(bestchoice)
-        asdfasdf
-
 
     def get_imagesize_choices(self):
         '''Return a list of possible image size choices for this camera.'''
