@@ -58,7 +58,7 @@ class Camera_cv:
             self.resolution = resolution   # Requested camera resolution
         else:
             self.resolution = (10000,10000) # Just use highest resolution possible
-        self.rotate = camera_rotate        # Is camera on its side?  
+        self.rotate = camera_rotate        # Is camera on its side?
 
         global cv_enabled
         if cv_enabled:
@@ -101,10 +101,10 @@ class Camera_cv:
             print("Camera is capturing at %.2f fps" % (fps))
 
     def reinit(self):
-        '''Close and reopen the video device. 
+        '''Close and reopen the video device.
         This is mainly for debugging video capture problems.
         '''
-        
+
         self.cap.release()
         self.cap = cv.VideoCapture(-1)
         r = self.cap.grab()
@@ -120,7 +120,7 @@ class Camera_cv:
         return self.rotate
 
     def has_preview(self):
-        return True 
+        return True
 
     def take_preview(self, filename=tmp_dir + "preview.jpg"):
         self.take_picture(filename)
@@ -139,7 +139,7 @@ class Camera_cv:
             self.__init__()     # Try again to open the camera (e.g, just plugged in)
             if not cv_enabled:  # Still failed?
                 raise CameraException("OpenCV: No camera found!")
-            
+
         # Grab a camera frame
         r, f = self.cap.read()
 
@@ -231,12 +231,17 @@ class Camera_gPhoto:
             print('Warning: Listing camera capabilities failed (' + e.message + ')')
             raise e
 
+        # Try to detect the resolutions available and use the best match.
+        print ("Trying to set resolution to " + repr(resolution))
+        self.set_resolution(resolution)
+
+
     def reinit(self):
         "Not needed for gphoto."
         return
 
     def call_gphoto(self, action, filename="/dev/null"):
-        '''Run a gphoto2 command as a subprocess. 
+        '''Run a gphoto2 command as a subprocess.
 
         action is in the form of a valid command line argument, e.g.,
         '-a' or '--set-config capture=0'.
@@ -277,7 +282,7 @@ class Camera_gPhoto:
         if gphoto2cffi_enabled:
             self._save_picture(filename, self.cap.get_preview())
         elif piggyphoto_enabled:
-            self.cap.capture_preview(filename)	
+            self.cap.capture_preview(filename)
         else:
             self.call_gphoto("--capture-preview", filename)
 
@@ -320,7 +325,7 @@ class Camera_gPhoto:
                 try:
                     f=Image.open(cmdline_preview)
                     f=numpy.array(f)
-                except Exception: 
+                except Exception:
                     raise CameraException("No preview supported!")
 
         # Optionally reduce frame size by decimation (nearest neighbor)
@@ -356,8 +361,8 @@ class Camera_gPhoto:
                     self._save_picture(filename, self.cap.capture())
                 except gp.errors.CameraIOError as e:
                     # The above fails on Canon A510 ("File not found")
-                    print('gphoto2cffi capture() error: ' + e.message) 
-                    print('Detected gphoto2cffi capture bug. Trying with to_camera_storage=True.') 
+                    print('gphoto2cffi capture() error: ' + e.message)
+                    print('Detected gphoto2cffi capture bug. Trying with to_camera_storage=True.')
                     self.gphoto2cffi_buggy_capture=True
                     f=self.cap.capture(to_camera_storage=True)
                     f.save(filename)
@@ -377,6 +382,94 @@ class Camera_gPhoto:
         f = open(filename, 'wb')
         f.write(data)
         f.close()
+
+    def set_resolution(self, resolution):
+        '''Try all the possible resolutions and use the one that matches best.
+        The problem with gphoto2 is that we can't specify in terms of
+        resolution. Instead, it gives us choices like 'Large' and 'Small'.
+        So, we'll take photos with each choice and measure the file.
+        '''
+        a={}
+        (rw, rh)=resolution
+
+        # For every possible choice, find out what resolution it is
+        oldchoice=self.get_imagesize()
+        for choice in self.get_imagesize_choices():
+            a[choice] = self.check_size(choice)
+        print('All possible imagesize choices: ' + repr(a))
+
+        # Find the best fitting resolution
+        bestsofar = -1
+        bestchoice = oldchoice
+        for c in a:
+            print( "bsf: " + repr(bestsofar))
+            (w,h) = a[c]
+            if w<rw or h<rh:
+                continue
+            if bestsofar<0 or bestsofar >  (w*h - rw*rh):
+                bestsofar = w*h - rw*rh
+                bestchoice = c
+
+        print('Best choice is: ' + repr(bestchoice) + ": " + repr(a[bestchoice]))
+        self.set_imagesize(bestchoice)
+        asdfasdf
+
+
+    def get_imagesize_choices(self):
+        '''Return a list of possible image size choices for this camera.'''
+        choices={}
+        if gphoto2cffi_enabled:
+            x=self.cap.config['imgsettings']['imagesize']
+            choices=x.choices
+        elif piggyphoto_enabled:
+            pass            # XXX Piggy not implemented yet
+        else:
+            pass            # XXX Command line gphoto not implemented yet
+
+        return choices
+
+    def set_imagesize(self,choice):
+        '''Given a specific image size choice, e.g. 'Large', set gphoto2 to
+        take pictures of that size.
+        '''
+        if gphoto2cffi_enabled:
+            x=self.cap.config['imgsettings']['imagesize']
+            x.set(choice)
+        elif piggyphoto_enabled:
+            return(-1,-1)           # XXX piggy not implemented yet
+        else:
+            return(-1,-1)           # XXX commandline gphoto not implemented yet
+
+    def get_imagesize(self):
+        '''Return the current imagesize setting from gphoto
+        (E.g., 'Large', 'Medium 1', 'Medium 2', 'Small', etc)
+        '''
+        if gphoto2cffi_enabled:
+            x=self.cap.config['imgsettings']['imagesize']
+            return x.value
+        elif piggyphoto_enabled:
+            return "Not implemented yet" # XXX piggy not implemented yet
+        else:
+            return "Not implmented yet" # XXX commandline gphoto not implemented yet
+
+    def check_size(self,choice):
+        '''Given a specific image size choice, return its dimensions.
+        This works by actually taking a photo as gphoto2 has no other way.
+        Returns (w, h).
+        '''
+        self.set_imagesize(choice)
+        if gphoto2cffi_enabled:
+            x=self.cap.config['imgsettings']['imagesize']
+            x.set(choice)
+            f=self.cap.capture(to_camera_storage=True)
+            (w,h)=f.dimensions
+            f.remove()
+            return (w,h)
+        elif piggyphoto_enabled:
+            return(-1,-1)           # XXX piggy not implemented yet
+        else:
+            return(-1,-1)           # XXX commandline gphoto not implemented yet
+
 
     def set_idle(self):
         try:
