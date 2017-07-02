@@ -46,8 +46,14 @@ camera_rotate = True
 
 # Final size of assembled image (the montage of four thumbnails).
 # If printing, this should be same aspect ratio as the printer page.
+#assembled_size = (6*392, 4*392)
+
 # (E.g., 6x4 photo paper @392dpi == 2352x1568)
-assembled_size = (6*300, 4*300)
+# PRINTER   CAMERA RESOLUTION (for each thumbnail)
+# 200dpi    > 600x400
+# 300dpi    > 900x600
+# 400dpi    >1200x800
+assembled_size = (6*200, 4*200)
 
 # Image basename
 picture_basename = datetime.now().strftime("%Y-%m-%d/pic")
