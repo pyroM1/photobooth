@@ -17,6 +17,7 @@ else:
     tmp_dir = "/tmp/"
 
 
+rtiacquire_enabled = False
 cv_enabled = False
 gphoto2cffi_enabled = False
 piggyphoto_enabled = False
@@ -29,21 +30,45 @@ except ImportError:
     pass
 
 try:
-    import gphoto2cffi as gp
-    gpExcept = gp.errors.GPhoto2Error
-    gphoto2cffi_enabled = True
-    print('Gphoto2cffi available')
+    from rtiacquire import decompress, camera as gp
+    gpExcept = gp.Error
+    rtiacquire_enabled = True
+    print('RTIacquire available')
+    import ctypes
+    # get the directory this source is in
+    source_dir = os.path.dirname(__file__)
+
+    # get the directory the dejpeg.so library is in
+    source_dir = source_dir + "/rtiacquire.orig/build/lib.linux-armv7l-2.7/rtiacquire"
+
+    # Load library
+    decompress = ctypes.CDLL(os.path.join(source_dir, 'dejpeg.so'))
+
+    class ByteImage(ctypes.Structure):
+        _fields_ = [('width', ctypes.c_int),
+                    ('height', ctypes.c_int),
+                    ('pixels', ctypes.c_void_p)]
+    b = ByteImage()
 except ImportError:
     pass
 
-if not gphoto2cffi_enabled:
+if not rtiacquire_enabled:
     try:
-        import piggyphoto as gp
-        gpExcept = gp.libgphoto2error
-        piggyphoto_enabled = True
-        print('Piggyphoto available')
+        import gphoto2cffi as gp
+        gpExcept = gp.errors.GPhoto2Error
+        gphoto2cffi_enabled = True
+        print('Gphoto2cffi available')
     except ImportError:
         pass
+
+    if not gphoto2cffi_enabled:
+        try:
+            import piggyphoto as gp
+            gpExcept = gp.libgphoto2error
+            piggyphoto_enabled = True
+            print('Piggyphoto available')
+        except ImportError:
+            pass
 
 class CameraException(Exception):
     """Custom exception class to handle camera class errors"""
@@ -205,7 +230,14 @@ class Camera_gPhoto:
 
         # Print the capabilities of the connected camera
         try:
-            if gphoto2cffi_enabled:
+            if rtiacquire_enabled:
+                try:
+                    print "Connecting to camera using rtiacquire"
+                    self.cap = gp.Camera()
+                except gpExcept as e:
+                    print('rtiacquire failed: ('+ e.message + ')')
+                    raise
+            elif gphoto2cffi_enabled:
                 try:
                     print "Connecting to camera using gphoto2cffi"
                     self.cap = gp.Camera()
@@ -214,7 +246,7 @@ class Camera_gPhoto:
                 except gp.errors.GPhoto2Error as e:
                     print('Error: Could not open camera (' + e.message + ')')
                     print('Make sure camera is turned on and plugged in, then restart this program.')
-                    raise e
+                    raise
                 except gp.errors.UnsupportedDevice as e:
                     print('Error: Could not open camera (' + e.message + ')')
                     print('Make sure camera is turned on and plugged in, then restart this program.')
@@ -291,7 +323,11 @@ class Camera_gPhoto:
         return True
 
     def take_preview(self, filename=tmp_dir+"preview.jpg"):
-        if gphoto2cffi_enabled:
+        if rtiacquire_enabled:
+            rtiacquire_preview = self.rtiacquire_get_preview_buffer()
+	    f=Image.frombuffer("RGB", (b.width,b.height), rtiacquire_preview)
+            f.save(filename)
+        elif gphoto2cffi_enabled:
             self._save_picture(filename, self.cap.get_preview())
         elif piggyphoto_enabled:
             self.cap.capture_preview(filename)	
@@ -311,7 +347,13 @@ class Camera_gPhoto:
         If a maximum size -- (w,h) -- is passed in, the returned image
         will be quickly decimated using numpy to be at most that large.
         """
-        if gphoto2cffi_enabled:
+        if rtiacquire_enabled:
+            rtiacquire_preview = self.rtiacquire_get_preview_buffer()
+	    f=Image.frombuffer("RGB", (b.width,b.height), rtiacquire_preview, 'raw', "RGB", 0, 1)
+            if self.rotate:     # Is camera on its side?
+                f=f.transpose(Image.ROTATE_90)
+            f=numpy.array(f)
+        elif gphoto2cffi_enabled:
             # Cffi can return the preview as a string. Yay!
             import StringIO   # Ugh. PIL wants stdio methods. (Maybe use scipy?)
             cffi_preview = self.cap.get_preview()
@@ -361,6 +403,16 @@ class Camera_gPhoto:
         return f
 
 
+    def rtiacquire_get_preview_buffer(self):
+        '''Read a JPEG preview image from the camera and decode it.
+        Return it as a string buffer.''' 
+        data=None
+        while data==None:
+            (data, length) = self.cap.preview()
+        decompress.decompress(data, length, ctypes.byref(b))
+        return ctypes.string_at(b.pixels, b.width * b.height * 3)
+
+
     def get_preview_pygame_surface(self, max_size=None):
         """Get a quick preview from the camera and return it as a Pygame
         Surface suitable for transformation and display using GUI.py's
@@ -373,7 +425,13 @@ class Camera_gPhoto:
         return s
 
     def take_picture(self, filename=tmp_dir + "picture.jpg"):
-        if gphoto2cffi_enabled:
+        if rtiacquire_enabled:
+            self.cap.capture_to_file(filename)
+            # RTIacquire always appends ".jpg" to filename.
+            import os
+            filenamejpg=filename+".jpg"
+            os.rename(filenamejpg, filename)
+        elif gphoto2cffi_enabled:
             if self.gphoto2cffi_buggy_capture:
                 f=self.cap.capture(to_camera_storage=True)
                 f.save(filename)
