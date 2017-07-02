@@ -34,7 +34,7 @@ except ImportError:
 
 # Screen size (set to 0,0 to use native resolution)
 display_size = (0, 0)
-#display_size = (1824, 984)
+display_size = (1024, 768)
 
 # Is the monitor on its side? (For portrait photos on landscape monitors).
 # If True, text will be rotated 90 degrees counterclockwise
