@@ -410,5 +410,15 @@ The GUI-class is separated from the entire functionality. I'm using Pygame becau
 
 Instead of gPhoto2 you can also use OpenCV to capture pictures. This is the preferred way if you want to use a webcam and is particularly useful for debugging on a different machine. For that you must install OpenCV and its Python bindings (run `sudo apt-get install python-opencv`) and then change the `CameraModule`: edit `photobooth.py` and replace `Camera_gphoto as CameraModule` by `Camera_cv as CameraModule`.
 
+## Current Fork
+Removing Cameras implementations.
+Removing dead code and debug code.
+Implementing picamera support.
+
+### TODO
+-Restore cameras implementations.
+-Generalization of the preview methods.
+-Single shot
+
 ## License
 I provide this code under AGPL v3. See [LICENSE](https://github.com/reuterbal/photobooth/blob/master/LICENSE).
