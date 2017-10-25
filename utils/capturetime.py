@@ -10,12 +10,12 @@
 
 # Oddly, these times don't change much if I shoot at low resolution.
 # (gphoto2 --set-config /main/imgsettings/imagesize=3)
-# So, I'm not sure what the bottleneck is. 
+# So, I'm not sure what the bottleneck is.
 
 # * Note, I assume gphoto2-cffi works for some other cameras. But on my
 # camera (Canon Powershot A510), it throws a CameraIO exception and
 # sometimes causes my camera's firmware to lock up. To workaround it,
-# I'm calling capture() with to_camera_storage=True. That makes it extra slow. 
+# I'm calling capture() with to_camera_storage=True. That makes it extra slow.
 
 
 
@@ -62,7 +62,7 @@ try:
 except:
     pass
 finally:
-    if cap:  cap.release()    
+    if cap:  cap.release()
 
 
 try:
@@ -70,7 +70,7 @@ try:
     cap=gphoto2cffi.Camera()
     gphoto2cffi_buggy=True
     t=time()
-    data = cap.capture(to_camera_storage=gphoto2cffi_buggy) # Work around bug  
+    data = cap.capture(to_camera_storage=gphoto2cffi_buggy) # Work around bug
     data.save("/dev/shm/gphoto2cffi.jpg")
     if gphoto2cffi_buggy:  data.remove()
     t=time()-t

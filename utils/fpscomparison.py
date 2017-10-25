@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # There are several different python interfaces to gphoto2.
-# All of them have drawbacks. 
+# All of them have drawbacks.
 
 # This program tests which gphoto2 interface has the fastest preview code.
 
@@ -38,14 +38,14 @@ except:
 
 
 try:
-    from rtiacquire import camera 
+    from rtiacquire import camera
     cap=camera.Camera()
     t=time()
     for i in range(frames):
         (data, length) = cap.preview()
     t=time()-t
     print ("RTIacquire preview FPS: %f" % (frames/t))
-    cap.release()    
+    cap.release()
 except:
     pass
 
@@ -68,7 +68,7 @@ try:
     cap=piggyphoto.camera()
     t=time()
     for i in range(frames):
-        # Note that piggyphoto has no way to access image in memory. 
+        # Note that piggyphoto has no way to access image in memory.
         # Using /dev/shm/ is a workaround.
         cap.capture_preview("/dev/shm/piggy.jpg")
         f=open("/dev/shm/piggy.jpg", "r")

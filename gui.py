@@ -34,7 +34,7 @@ class GUI_PyGame:
 
         # Store screen and size
         self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
-        
+
         # Always find the real resolution (e.g., if size==(0,0))
         i = pygame.display.Info()
         self.size = (i.current_w, i.current_h)
@@ -72,7 +72,7 @@ class GUI_PyGame:
         Note that 2-D arrays cannot be scaled easily, so this has the
         downside that the image may be smaller than the screen. This code
         will compensate by centering the image.
-        
+
         Also note, if you pass in an array that's *larger* than the
         screen, then this will arbitrarily decimate the array for you
         using nearest neighbor.
@@ -80,7 +80,7 @@ class GUI_PyGame:
 
         # Find size of image array and of screen
         (    w,     h) = (len(f), len(f[0]))
-        (max_w, max_h) = self.get_size()                            
+        (max_w, max_h) = self.get_size()
 
         # Decimate size if image is too large.
         if w>max_w or h>max_h:
@@ -168,7 +168,7 @@ class GUI_PyGame:
         self.clear()
         self.show_message(text)
         self.apply()
-        
+
     static_message_cache = {}
     def set_message_cache(self, msg, color, bg, transparency, outline, rotate, rendered_text):
         """Speed up for show_message which is called repeatedly during
@@ -193,8 +193,8 @@ class GUI_PyGame:
         offset = ( (size[0] - text_size[0]) // 2, (size[1] - text_size[1]) // 2 )
 
         # Create Surface object and fill it with the given background
-        surface = pygame.Surface(self.size) 
-        surface.fill(bg) 
+        surface = pygame.Surface(self.size)
+        surface.fill(bg)
 
         # Render text
         rendered_text = font.render(text, 1, color)
@@ -229,9 +229,9 @@ class GUI_PyGame:
                 # Put words on the line as long as they fit
                 for word in words:
                     test_line = accumulated_line + word + " "
-                    # Build the line while the words fit.   
+                    # Build the line while the words fit.
                     if font.size(test_line)[0] < size[0]:
-                        accumulated_line = test_line 
+                        accumulated_line = test_line
                     else:
                         # Start a new line
                         line_height = font.size(accumulated_line)[1]
@@ -240,7 +240,7 @@ class GUI_PyGame:
                         else:
                             accumulated_height += line_height
                             final_lines.append(accumulated_line)
-                            accumulated_line = word + " " 
+                            accumulated_line = word + " "
                 # Finish requested_line
                 line_height = font.size(accumulated_line)[1]
                 if accumulated_height + line_height > size[1]:
@@ -250,7 +250,7 @@ class GUI_PyGame:
                     final_lines.append(accumulated_line)
             # Line fits as it is
             else:
-                accumulated_height += font.size(requested_line)[1] 
+                accumulated_height += font.size(requested_line)[1]
                 final_lines.append(requested_line)
 
         # Check height of wrapped text
@@ -268,7 +268,7 @@ class GUI_PyGame:
         if valign == 0:     # top aligned
             voffset = 0
         elif valign == 1:   # centered
-            
+
             voffset = int((maybe_rotated_size[1] - text_height) / 2)
         elif valign == 2:   # bottom aligned
             voffset = maybe_rotated_size[1] - text_height
@@ -276,12 +276,12 @@ class GUI_PyGame:
             raise GuiException("Invalid valign argument: " + str(valign))
 
         # Create Surface object and fill it with the given background
-        surface = pygame.Surface(maybe_rotated_size) 
-        surface.fill(bg) 
+        surface = pygame.Surface(maybe_rotated_size)
+        surface.fill(bg)
 
         # Blit one line after another
-        accumulated_height = 0 
-        for line in text: 
+        accumulated_height = 0
+        for line in text:
             maintext = font.render(line, 1, color)
             shadow = font.render(line, 1, outline)
             if halign == 0:     # left aligned
@@ -310,13 +310,13 @@ class GUI_PyGame:
         return surface
 
     def convert_event(self, event):
-        if event.type == pygame.QUIT: 
+        if event.type == pygame.QUIT:
             return True, Event(0, 0)
-        elif event.type == pygame.KEYDOWN: 
+        elif event.type == pygame.KEYDOWN:
             return True, Event(1, event.key)
-        elif event.type == pygame.MOUSEBUTTONUP: 
+        elif event.type == pygame.MOUSEBUTTONUP:
             return True, Event(2, (event.button, event.pos))
-        elif event.type >= pygame.USEREVENT: 
+        elif event.type >= pygame.USEREVENT:
             return True, Event(3, event.channel)
         else:
             return False, ''

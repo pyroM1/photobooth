@@ -9,7 +9,7 @@ import StringIO   # Ugh. PIL wants stdio methods. (Maybe use scipy?)
 
 pygame.init()
 pygame.display.set_caption('CFFItest')
-screen=pygame.display.set_mode((0,0), pygame.FULLSCREEN)            
+screen=pygame.display.set_mode((0,0), pygame.FULLSCREEN)
 i = pygame.display.Info()
 size = (i.current_w, i.current_h)
 screen.fill((0,0,0))

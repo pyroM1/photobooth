@@ -52,7 +52,7 @@ cap = cv2.VideoCapture(-1)
 if not cap.isOpened:
     print "Warning: Failed to open camera using OpenCV"
     exit
-    
+
 # Print the capabilities of the connected camera
 w=cap.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
 h=cap.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
@@ -79,4 +79,4 @@ while True:
         total_frames=total_frames+frames
         print("After %04d frames, %04d seconds: Camera is capturing at %.2f fps" % (total_frames, int(time.time()-overall_start), fps))
 
-        
+

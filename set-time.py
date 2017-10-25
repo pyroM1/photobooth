@@ -50,16 +50,16 @@ def show_numpad(display, numpad, button_size):
 def show_digits(display, digits, button_size):
 	for i in range(len(digits)):
 		display.show_button(digits[i], (400 + i * (button_size[0] + 5), 200), button_size, outline=(0,0,0))
-	
-def main():	
+
+def main():
 	display = GuiModule('set-time', display_size, hide_mouse=False)
 
 	for digit in range(len(date_digits)):
 		display.clear()
 
-		show_numpad(display, numpad, button_size)	
+		show_numpad(display, numpad, button_size)
 		display.show_button('Date:', (400, 100), outline=(0,0,0))
-		show_digits(display, date_digits, button_size)	
+		show_digits(display, date_digits, button_size)
 
 		display.apply()
 
@@ -73,9 +73,9 @@ def main():
 	for digit in range(len(time_digits)):
 		display.clear()
 
-		show_numpad(display, numpad, button_size)	
+		show_numpad(display, numpad, button_size)
 		display.show_button('Time:', (400, 100), outline=(0,0,0))
-		show_digits(display, time_digits, button_size)	
+		show_digits(display, time_digits, button_size)
 
 		display.apply()
 
@@ -87,7 +87,7 @@ def main():
 	# YYYY-MM-DD HH:mm
 	date_str = ( date_digits[4] + date_digits[5] + date_digits[6] + date_digits[7] + '-' +
 	             date_digits[2] + date_digits[3] + '-' +
-	             date_digits[0] + date_digits[1] + ' ' + 
+	             date_digits[0] + date_digits[1] + ' ' +
 	             time_digits[0] + time_digits[1] + ':' + time_digits[2] + time_digits[3] )
 
 	subprocess.check_call(['date', '-s', date_str])
@@ -97,4 +97,3 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
-	
