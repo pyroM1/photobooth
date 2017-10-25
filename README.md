@@ -416,9 +416,9 @@ Removing dead code and debug code.
 Implementing picamera support.
 
 ### TODO
--Restore cameras implementations.
--Generalization of the preview methods.
--Single shot
+* Restore cameras implementations.
+* Generalization of the preview methods.
+* Single shot
 
 ## License
 I provide this code under AGPL v3. See [LICENSE](https://github.com/reuterbal/photobooth/blob/master/LICENSE).
