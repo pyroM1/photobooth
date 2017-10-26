@@ -391,9 +391,10 @@ class Photobooth:
 		"""Implements the actions for the different mousebutton events"""
 		# Take a picture
 		if key == 1:
-			print(pos)
-			#self.take_4_pictures()
-			#self.take_picture()
+			if pos[0] >= 512:
+				self.take_4_pictures()
+			else:
+				self.take_picture()
 
 	def handle_gpio_event(self, channel):
 		"""Implements the actions taken for a GPIO event"""
