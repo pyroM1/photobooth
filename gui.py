@@ -133,11 +133,17 @@ class GUI_PyGame:
             surface = pygame.transform.flip(surface, not r, r)
         self.surface_list.append((surface, offset))
 
+    #def show_buttons(self):
+    #    font = pygame.font.Font(None, 25)
+    #    text = font.render("You win!", True, (0,0,0))
+    #    text_rect = text.get_rect(center=(200/2, 200/2))
+    #    surface = pygame.Surface((200,200))
+    #    surface.blit(text, text_rect)
+    #    self.surface_list.append((surface, (200,200)))
 
     def show_message(self, msg, color=(0,0,0), bg=(230,230,230), transparency=True, outline=(245,245,245)):
         # Check if we've done this before
-        s=self.get_message_cache(msg, color, bg, transparency, outline,
-                                 self.display_rotate)
+        s=self.get_message_cache(msg, color, bg, transparency, outline, self.display_rotate)
         if s:
             self.surface_list.append((s, (0,0)))
             return

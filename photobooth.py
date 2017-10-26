@@ -290,6 +290,7 @@ class Photobooth:
 		while True:
 			self.camera.set_idle()
 			self.slideshow.display_next("Hit the button!")
+			#self.display.show_buttons()
 			tic = time()
 			while time() - tic < self.slideshow_display_time:
 				self.check_and_handle_events()
@@ -350,7 +351,7 @@ class Photobooth:
 			self.teardown()
 		# Take pictures
 		elif key == ord('c'):
-			self.take_picture()
+			self.take_4_pictures()
 		elif key == ord('f'):
 			self.display.toggle_fullscreen()
 		elif key == ord('i'):   # Re-initialize the camera for debugging
@@ -390,12 +391,14 @@ class Photobooth:
 		"""Implements the actions for the different mousebutton events"""
 		# Take a picture
 		if key == 1:
-			self.take_picture()
+			print(pos)
+			#self.take_4_pictures()
+			#self.take_picture()
 
 	def handle_gpio_event(self, channel):
 		"""Implements the actions taken for a GPIO event"""
 		if channel == self.trigger_channel:
-			self.take_picture()
+			self.take_4_pictures()
 		elif channel == self.shutdown_channel:
 			self.teardown()
 
@@ -537,6 +540,102 @@ class Photobooth:
 			toc = min(toc + 1, time() - tic)
 
 	def take_picture(self):
+		"""Implements the picture taking routine"""
+		# Disable lamp
+		self.gpio.set_output(self.lamp_channel, 0)
+
+		# Start preview
+		self.start_preview()
+
+		# Show pose message
+		self.show_pose(2, "POSE!\n\nTaking 1 picture ...");
+
+		# Extract display and image sizes
+		size = self.display.get_size()
+
+		# Take pictures
+		# Countdown
+		self.show_counter(self.pose_time)
+
+		self.camera.stop_preview();
+		# Try each picture up to 3 times
+		self.display.clear((255,230,200))
+		self.display.show_message("S M I L E !!!\n\n")
+		self.display.apply()
+
+		outfile = None
+		try:
+			outfile = self.pictures.get_next()
+			resolution = self.camera.resolution
+			self.camera.resolution = (3104,2464)
+			filenames = self.camera.take_picture(outfile)
+			self.camera.resolution = resolution
+			if self.shutter:
+				self.shutter.play()
+		except CameraException as e:
+			# On recoverable errors: display message and retry
+			if e.recoverable:
+				raise CameraException("Giving up! Please start over!", False)
+			else:
+			   raise e
+
+		if self.printer_module.can_print():
+			# Show picture for 10 seconds and then send it to the printer.
+			# If auto_print is True,  hitting the button cancels the print.
+			# If auto_print is False, hitting the button sends the print
+			tic = time()
+			t = int(self.display_time - (time() - tic))
+			old_t = self.display_time+1
+			button_pressed=False
+
+			# Clear event queue (in case they hit the button twice accidentally)
+			self.clear_event_queue()
+
+			while t > 0:
+				if t != old_t:
+					self.display.clear()
+					self.display.show_picture(outfile, size, (0,0))
+					self.display.show_message("%s%d" % ("Printing in " if auto_print else "Print photo?\n", t))
+					self.display.apply()
+					old_t=t
+
+				# Flash the lamp so they'll know they can hit the button
+				self.gpio.set_output(self.lamp_channel, int(time()*2)%2)
+
+				# Watch for button, gpio, mouse press to cancel/enable printing
+				r, e = self.display.check_for_event()
+				if r:					# Caught a button press.
+					self.display.clear()
+					self.display.show_picture(outfile, size, (0,0))
+					self.display.show_message("Printing%s" % (" cancelled" if auto_print else ""))
+					self.display.apply()
+					self.gpio.set_output(self.lamp_channel, 0)
+					sleep(1)
+
+					# Discard extra events (e.g., they hit the button a bunch)
+					self.clear_event_queue()
+
+					button_pressed=True
+					break
+
+				t = int(self.display_time - (time() - tic))
+
+			# Either button pressed or countdown timed out
+			self.gpio.set_output(self.lamp_channel, 0)
+			if auto_print ^ button_pressed:
+				self.display.msg("Printing")
+				self.printer_module.enqueue(outfile)
+		else:
+			# No printer available, so just show montage for 10 seconds
+			self.display.clear()
+			self.display.show_picture(outfile, size, (0,0))
+			self.display.apply()
+			sleep(self.display_time)
+
+		# Reenable lamp
+		self.gpio.set_output(self.lamp_channel, 1)
+
+	def take_4_pictures(self):
 		"""Implements the picture taking routine"""
 		# Disable lamp
 		self.gpio.set_output(self.lamp_channel, 0)
