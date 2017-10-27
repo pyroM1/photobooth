@@ -360,6 +360,8 @@ class Photobooth:
 			self.toggle_auto_print()
 		elif key == ord('r'):
 			self.toggle_rotate()
+		elif key == ord('k'):
+			quit()
 
 	def toggle_auto_print(self):
 		"Toggle auto print and show an error message if printing isn't possible."
