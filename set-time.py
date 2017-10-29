@@ -25,10 +25,10 @@ numpad = { 	'1': (100, 100), '2': (200, 100), '3': (300, 100),
 #################
 
 def check_and_handle_events(display, digit):
-    r, e = display.check_for_event()
-    while r:
-        handle_event(e, digit)
-        r, e = display.check_for_event()
+	r, e = display.check_for_event()
+	while r:
+		handle_event(e, digit)
+		r, e = display.check_for_event()
 
 def handle_event(event, digit, digits, numpad):
 	# mouseclick
@@ -86,9 +86,9 @@ def main():
 
 	# YYYY-MM-DD HH:mm
 	date_str = ( date_digits[4] + date_digits[5] + date_digits[6] + date_digits[7] + '-' +
-	             date_digits[2] + date_digits[3] + '-' +
-	             date_digits[0] + date_digits[1] + ' ' +
-	             time_digits[0] + time_digits[1] + ':' + time_digits[2] + time_digits[3] )
+				 date_digits[2] + date_digits[3] + '-' +
+				 date_digits[0] + date_digits[1] + ' ' +
+				 time_digits[0] + time_digits[1] + ':' + time_digits[2] + time_digits[3] )
 
 	subprocess.check_call(['date', '-s', date_str])
 
@@ -96,4 +96,4 @@ def main():
 	return 0
 
 if __name__ == "__main__":
-    exit(main())
+	exit(main())
