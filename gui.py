@@ -58,10 +58,14 @@ class GUI_PyGame:
     def clear(self, color=(0,0,0)):
         self.screen.fill(color)
         self.surface_list = []
+        self.static_message_cache = {}
 
     def apply(self):
+        #print("surfaceList: " + `len(self.surface_list)`)
         for surface in self.surface_list:
+            #print(surface)
             self.screen.blit(surface[0], surface[1])
+        #print("\n")
         pygame.display.update()
 
     def blit_array(self, f):
@@ -131,7 +135,7 @@ class GUI_PyGame:
         if flip:
             r = self.display_rotate
             surface = pygame.transform.flip(surface, not r, r)
-        self.surface_list.append((surface, offset))
+        self.surface_list.append((surface, offset, "show_picture"))
 
     #def show_buttons(self):
     #    font = pygame.font.Font(None, 25)
@@ -145,7 +149,7 @@ class GUI_PyGame:
         # Check if we've done this before
         s=self.get_message_cache(msg, color, bg, transparency, outline, self.display_rotate)
         if s:
-            self.surface_list.append((s, (0,0)))
+            self.surface_list.append((s, (0,0), "show_message1: " + msg))
             return
 
         # Choose font
@@ -163,7 +167,7 @@ class GUI_PyGame:
             rendered_text = pygame.transform.rotate(rendered_text, 90)
 
         # Queue it for rendering during next apply()
-        self.surface_list.append((rendered_text, (0,0)))
+        self.surface_list.append((rendered_text, (0,0), "show_message2: " + msg))
 
         # Save this rendering for later since this routine is so slow.
         self.set_message_cache(msg, color, bg, transparency, outline,
@@ -190,6 +194,45 @@ class GUI_PyGame:
         else:
             return None
 
+    def show_btn(self, msg, pos, size=(0,0), color=(230,230,230), bg=(0,0,0), transparency=True, outline=(230,230,230)):
+        # Check if we've done this before
+        s=self.get_message_cache(msg, color, bg, transparency, outline, self.display_rotate)
+        if s:
+            return
+
+        # Choose font
+        font = pygame.font.Font(None, 72)
+        # If monitor is on its side, rotate text CCW 90 degrees
+        if not self.display_rotate:
+            maybe_rotated_size=self.size
+        else:
+            maybe_rotated_size=(self.size[1], self.size[0])
+        # Wrap and render text
+        surface = pygame.Surface(self.size)
+        surface.fill(bg)
+
+        rendered_text = font.render(msg, 1, color)
+        if size == (0,0):
+            size = (rendered_text.get_width(), rendered_text.get_height())
+        text_rect = rendered_text.get_rect(center=(pos[0]+size[0]/2, pos[1]+size[1]/2))
+        surface.blit(rendered_text, text_rect)
+
+        btn_rect = pygame.draw.rect(surface, outline, (pos[0], pos[1], size[0], size[1]), 1)
+
+        if self.display_rotate:
+            surface = pygame.transform.rotate(surface, 90)
+
+        if transparency:
+            surface.set_colorkey(bg)
+
+        # Queue it for rendering during next apply()
+        self.surface_list.append((surface, (0,0), "show_btn2: " + msg))
+
+        # Save this rendering for later since this routine is so slow.
+        self.set_message_cache(msg, color, bg, transparency, outline, self.display_rotate, surface)
+
+        return btn_rect 
+
     def show_button(self, text, pos, size=(0,0), color=(230,230,230), bg=(0,0,0), transparency=True, outline=(230,230,230)):
         # Choose font
         font = pygame.font.Font(None, 72)
@@ -207,13 +250,14 @@ class GUI_PyGame:
         surface.blit(rendered_text, pos)
 
         # Render outline
-        pygame.draw.rect(surface, outline, (pos[0]-offset[0], pos[1]-offset[0], size[0], size[1]), 1)
+        pygame.draw.rect(surface, outline, (pos[0]-offset[0], pos[1]-offset[1], size[0], size[1]), 1)
 
         # Make background color transparent
         if transparency:
             surface.set_colorkey(bg)
 
-        self.surface_list.append((surface, (0,0)))
+        self.surface_list.append((surface, (0,0), "show_button: " + text))
+        self.display.apply()
 
     def wrap_text(self, msg, font, size):
         final_lines = []                   # resulting wrapped text

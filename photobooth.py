@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Created by br _at_ re-web _dot_ eu, 2015-2016
 
 import cProfile
@@ -30,6 +31,13 @@ except ImportError:
 #####################
 ### Configuration ###
 #####################
+
+const_shutting_down=u"Arrêt...";
+const_hit_button=u"Touchez l'écran !";
+const_waiting_construct="veuillez patienter,\n\ntraitement en cours..."
+const_pose_take_1_picture="Souriez !\n\n Prise de la photo..."
+const_pose_take_4_picture="Souriez !\n\n Prise de 4 photos..."
+const_smille="S O U R I E Z !!!\n\n"
 
 # Screen size (set to 0,0 to use native resolution)
 display_size = (0, 0)
@@ -236,6 +244,11 @@ class Photobooth:
 		self.shutdown_channel = shutdown_channel
 		self.lamp_channel	 = lamp_channel
 
+		self.btn1_rec = (192, 450, 300, 100)
+		self.btn1_draw_rec = (self.btn1_rec[0], self.btn1_rec[1], self.btn1_rec[0] + self.btn1_rec[2], self.btn1_rec[1] + self.btn1_rec[3])
+		self.btn2_rec = (532, 450, 300, 100)
+		self.btn2_draw_rec = (self.btn2_rec[0], self.btn2_rec[1], self.btn2_rec[0] + self.btn2_rec[2], self.btn2_rec[1] + self.btn2_rec[3])
+
 		self.idle_slideshow = idle_slideshow
 		if self.idle_slideshow:
 			self.slideshow_display_time = slideshow_display_time
@@ -260,7 +273,7 @@ class Photobooth:
 			pass
 
 	def teardown(self):
-		self.display.msg("Shutting down...")
+		self.display.msg(const_shutting_down)
 		self.gpio.set_output(self.lamp_channel, 0)
 		sleep(0.5)
 		self.display.teardown()
@@ -280,7 +293,7 @@ class Photobooth:
 			self.camera.set_idle()
 
 			# Display default message
-			self.display.msg("Hit the button!")
+			self.display.msg(const_hit_button)
 
 			# Wait for an event and handle it
 			event = self.display.wait_for_event()
@@ -289,8 +302,12 @@ class Photobooth:
 	def _run_slideshow(self):
 		while True:
 			self.camera.set_idle()
-			self.slideshow.display_next("Hit the button!")
-			#self.display.show_buttons()
+			self.slideshow.display_next(const_hit_button)
+			self.display.show_btn("1x photo", (self.btn1_rec[0], self.btn1_rec[1]), size=(self.btn1_rec[2], self.btn1_rec[3]))
+			self.display.show_btn("4x photo", (self.btn2_rec[0], self.btn2_rec[1]), size=(self.btn2_rec[2], self.btn2_rec[3]))
+			self.display.apply()
+			#print(self.btn1_draw_rec)
+			#print(self.btn2_draw_rec)
 			tic = time()
 			while time() - tic < self.slideshow_display_time:
 				self.check_and_handle_events()
@@ -360,8 +377,6 @@ class Photobooth:
 			self.toggle_auto_print()
 		elif key == ord('r'):
 			self.toggle_rotate()
-		elif key == ord('k'):
-			quit()
 
 	def toggle_auto_print(self):
 		"Toggle auto print and show an error message if printing isn't possible."
@@ -393,10 +408,10 @@ class Photobooth:
 		"""Implements the actions for the different mousebutton events"""
 		# Take a picture
 		if key == 1:
-			if pos[0] >= 512:
-				self.take_4_pictures()
-			else:
+			if pos_in_box(pos, self.btn1_draw_rec):
 				self.take_picture()
+			elif pos_in_box(pos, self.btn2_draw_rec):
+				self.take_4_pictures()
 
 	def handle_gpio_event(self, channel):
 		"""Implements the actions taken for a GPIO event"""
@@ -551,7 +566,7 @@ class Photobooth:
 		self.start_preview()
 
 		# Show pose message
-		self.show_pose(2, "POSE!\n\nTaking 1 picture ...");
+		self.show_pose(2, const_pose_take_1_picture);
 
 		# Extract display and image sizes
 		size = self.display.get_size()
@@ -563,15 +578,22 @@ class Photobooth:
 		self.camera.stop_preview();
 		# Try each picture up to 3 times
 		self.display.clear((255,230,200))
-		self.display.show_message("S M I L E !!!\n\n")
+		self.display.show_message(const_smille)
 		self.display.apply()
 
 		outfile = None
 		try:
 			outfile = self.pictures.get_next()
+			filename = os.path.basename(outfile)
+			fulloutfile = os.path.dirname(outfile) + '/full-' + filename
+
 			resolution = self.camera.resolution
-			self.camera.resolution = (3104,2464)
-			filenames = self.camera.take_picture(outfile)
+			#self.camera.resolution = (3104,2464)
+			filename = self.camera.take_picture()
+			im = Image.open(filename)
+			out = Image.new("RGB", im.size)
+			out.paste(im)
+			out.save(outfile, "JPEG")
 			self.camera.resolution = resolution
 			if self.shutter:
 				self.shutter.play()
@@ -638,6 +660,8 @@ class Photobooth:
 		# Reenable lamp
 		self.gpio.set_output(self.lamp_channel, 1)
 
+		self.display.clear()
+
 	def take_4_pictures(self):
 		"""Implements the picture taking routine"""
 		# Disable lamp
@@ -647,7 +671,7 @@ class Photobooth:
 		self.start_preview()
 
 		# Show pose message
-		self.show_pose(2, "POSE!\n\nTaking 4 pictures ...");
+		self.show_pose(2, const_pose_take_4_picture);
 
 		# Extract display and image sizes
 		size = self.display.get_size()
@@ -666,7 +690,7 @@ class Photobooth:
 				remaining_attempts = remaining_attempts - 1
 
 				self.display.clear((255,230,200))
-				self.display.show_message("S M I L E !!!\n\n" + str(x+1) + " of 4")
+				self.display.show_message(const_smille + str(x+1) + " sur 4")
 				self.display.apply()
 
 				tic = time()
@@ -697,7 +721,7 @@ class Photobooth:
 		self.camera.stop_preview()
 
 		# Show 'Wait'
-		self.display.msg("Please wait!\n\nWorking\n...")
+		self.display.msg(const_waiting_construct)
 
 		# Assemble them
 		outfile = self.assemble_pictures(filenames)
@@ -759,6 +783,8 @@ class Photobooth:
 		# Reenable lamp
 		self.gpio.set_output(self.lamp_channel, 1)
 
+		self.display.clear()
+
 #################
 ### Functions ###
 #################
@@ -772,6 +798,9 @@ def maxpect(a, b):
 	ratio = min(w_ratio, h_ratio)
 
 	return (int(ratio * a[0]), int (ratio * a[1]))
+
+def pos_in_box(pos, box):
+	return pos[0] > box[0] and pos[1] > box[1] and pos[0] < box[2] and pos[1] < box[3]
 
 def main():
 	photobooth = Photobooth(display_size, display_rotate, picture_basename,
